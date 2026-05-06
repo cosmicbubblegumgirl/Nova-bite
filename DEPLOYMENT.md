@@ -17,7 +17,7 @@ Current data is stored in memory for demo use. Before client launch, connect `ba
 
 ```text
 GitHub repo: https://github.com/cosmicbubblegumgirl/Nova-bite
-Static frontend: https://cosmicbubblegumgirl.github.io/Nova-bite/
+Live static frontend: https://cosmicbubblegumgirl.github.io/Nova-bite/
 Render create link: https://dashboard.render.com/
 Railway create link: https://railway.com/new
 ```
