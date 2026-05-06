@@ -2,6 +2,15 @@
 
 Standalone fine dining website with its own frontend, backend API, member portal, tasting builder, and booking flow.
 
+## Public links
+
+- Code repo: https://github.com/cosmicbubblegumgirl/Nova-bite
+- Static demo URL after GitHub Pages is enabled: https://cosmicbubblegumgirl.github.io/Nova-bite/
+- Render backend setup: https://dashboard.render.com/
+- Railway backend setup: https://railway.com/new
+
+The static public demo can run without a backend by using browser demo storage. The full Node backend in `backend/server.js` is ready for Render or Railway, and the frontend can point to that deployed API by setting `window.NOVABITE_API_URL` in `public/config.js`.
+
 ## Run
 
 ```powershell

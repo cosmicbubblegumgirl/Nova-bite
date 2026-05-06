@@ -1,16 +1,18 @@
 const app = document.querySelector('#app');
+const asset = (path) => new URL(path, import.meta.url).href;
+const apiBase = (window.NOVABITE_API_URL || '').replace(/\/$/, '');
 
 const images = [
-  '/assets/dish-1.jpg',
-  '/assets/dish-2.jpg',
-  '/assets/dish-3.jpg',
-  '/assets/dish-4.jpg',
-  '/assets/dish-5.jpg',
-  '/assets/dish-6.jpg',
-  '/assets/dish-7.jpg',
-  '/assets/dish-8.jpg',
-  '/assets/dish-9.jpg',
-  '/assets/dish-10.jpg',
+  asset('assets/dish-1.jpg'),
+  asset('assets/dish-2.jpg'),
+  asset('assets/dish-3.jpg'),
+  asset('assets/dish-4.jpg'),
+  asset('assets/dish-5.jpg'),
+  asset('assets/dish-6.jpg'),
+  asset('assets/dish-7.jpg'),
+  asset('assets/dish-8.jpg'),
+  asset('assets/dish-9.jpg'),
+  asset('assets/dish-10.jpg'),
 ];
 
 const starters = ['Citrus scallop', 'Smoked beet tartare', 'Saffron arancini', 'Charcoal aubergine', 'Oyster leaf toast', 'Miso pumpkin silk', 'Yuzu tuna', 'Wild mushroom chawanmushi', 'Pear burrata', 'Cured trout rose'];
@@ -19,9 +21,9 @@ const desserts = ['Honey saffron tart', 'Dark chocolate soil', 'Rooibos panna co
 const pairings = ['Cap Classique flight', 'Rare tea ceremony', 'Old-world cellar pairing', 'Low-intervention wine arc', 'Zero-proof botanical flight'];
 const moods = ['Moonlit Citrus', 'Velvet Ember', 'Garden After Rain', 'Black Garlic Opera', 'Saffron Tide', 'Juniper Nocturne', 'Harvest Velvet', 'Pearl Smoke', 'Copper Orchard'];
 const courseImages = {
-  Opening: ['/assets/dish-3.jpg', '/assets/dish-4.jpg', '/assets/dish-7.jpg', '/assets/dish-8.jpg', '/assets/dish-9.jpg'],
-  Centerpiece: ['/assets/dish-1.jpg', '/assets/dish-2.jpg', '/assets/dish-5.jpg', '/assets/dish-6.jpg', '/assets/dish-10.jpg'],
-  Finale: ['/assets/dish-4.jpg', '/assets/dish-7.jpg', '/assets/dish-8.jpg', '/assets/dish-9.jpg', '/assets/dish-3.jpg'],
+  Opening: [asset('assets/dish-3.jpg'), asset('assets/dish-4.jpg'), asset('assets/dish-7.jpg'), asset('assets/dish-8.jpg'), asset('assets/dish-9.jpg')],
+  Centerpiece: [asset('assets/dish-1.jpg'), asset('assets/dish-2.jpg'), asset('assets/dish-5.jpg'), asset('assets/dish-6.jpg'), asset('assets/dish-10.jpg')],
+  Finale: [asset('assets/dish-4.jpg'), asset('assets/dish-7.jpg'), asset('assets/dish-8.jpg'), asset('assets/dish-9.jpg'), asset('assets/dish-3.jpg')],
 };
 
 const tastingMenus = Array.from({ length: 45 }, (_, index) => {
@@ -70,6 +72,79 @@ let selectedCourse = selectedMenu.courses[0];
 let selectedBuilder = [];
 let token = localStorage.getItem('novabite_token') || '';
 let activeUser = JSON.parse(localStorage.getItem('novabite_user') || 'null');
+const demoState = JSON.parse(localStorage.getItem('novabite_demo_state') || '{"bookings":[],"customMenus":[]}');
+
+function saveDemoState() {
+  localStorage.setItem('novabite_demo_state', JSON.stringify(demoState));
+}
+
+async function api(path, options = {}) {
+  const endpoint = apiBase ? `${apiBase}${path}` : path.replace(/^\//, '');
+  try {
+    const response = await fetch(endpoint, options);
+    if (response.ok || response.status !== 404) return response;
+  } catch {
+    // Static public hosting has no Node API server; use the demo fallback below.
+  }
+
+  const method = (options.method || 'GET').toUpperCase();
+  const payload = options.body ? JSON.parse(options.body) : {};
+  let body;
+  let status = 200;
+
+  if (path === '/api/site') {
+    body = {
+      metrics: [
+        { label: 'Tonight', value: String(18 - Math.min(demoState.bookings.length, 12)), detail: 'open tasting seats' },
+        { label: 'Menus', value: '45', detail: 'curated tasting journeys' },
+        { label: 'Packages', value: '18', detail: 'private dining moments' },
+      ],
+      activity: [
+        ...demoState.bookings.slice(-2).map((item) => `${item.menu} booked for ${item.guests || 2} guests`),
+        ...demoState.customMenus.slice(-2).map((item) => `${item.title} moved to chef review`),
+        'Chef Amara released the Moonlit Citrus tasting menu',
+      ].slice(0, 5),
+    };
+  } else if ((path === '/api/register' || path === '/api/login') && method === 'POST') {
+    if (!payload.email || !payload.password || (path === '/api/register' && !payload.name)) {
+      status = 400;
+      body = { error: 'Name, email, and password are required' };
+    } else {
+      body = {
+        token: `demo-${Date.now()}`,
+        user: { id: 'demo-user', name: payload.name || payload.email.split('@')[0], email: payload.email },
+      };
+    }
+  } else if (path === '/api/custom-menus' && method === 'POST') {
+    if (!token) {
+      status = 401;
+      body = { error: 'Create an account or log in before saving a menu' };
+    } else {
+      const menu = { id: `menu-${Date.now()}`, createdAt: new Date().toISOString(), ...payload };
+      demoState.customMenus.push(menu);
+      saveDemoState();
+      body = { ok: true, menu };
+    }
+  } else if (path === '/api/bookings' && method === 'POST') {
+    if (!token) {
+      status = 401;
+      body = { error: 'Create an account or log in before booking' };
+    } else {
+      const booking = { id: `booking-${Date.now()}`, createdAt: new Date().toISOString(), ...payload };
+      demoState.bookings.push(booking);
+      saveDemoState();
+      body = { ok: true, booking };
+    }
+  } else {
+    status = 404;
+    body = { error: 'Demo API route not found' };
+  }
+
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 function money(value) {
   return new Intl.NumberFormat('en-ZA', {
@@ -82,7 +157,7 @@ function money(value) {
 function nav() {
   return `
     <nav class="nav">
-      <a class="brand" href="#top"><img class="brand-logo" src="/assets/logo.svg" alt="NovaBite logo" />NovaBite</a>
+      <a class="brand" href="#top"><img class="brand-logo" src="${asset('assets/logo.svg')}" alt="NovaBite logo" />NovaBite</a>
       <div class="nav-links">
         <a href="#menus">45 Menus</a>
         <a href="#table">Chef Table</a>
@@ -139,7 +214,7 @@ function menuCard(menu) {
         <img src="${menu.image}" alt="${menu.name} centerpiece dish" />
       </div>
       <div>
-        <span>${menu.time} · ${menu.pairing}</span>
+        <span>${menu.time} &middot; ${menu.pairing}</span>
         <h3>${menu.name}</h3>
         <p>${menu.courses.map((course) => course.name).join(' / ')}</p>
         <div class="course-thumbs">
@@ -251,8 +326,8 @@ function portal() {
           <h3>Advance booking</h3>
           <input name="date" type="date" required />
           <input name="guests" type="number" min="1" max="24" placeholder="Guests" required />
-          <select name="menu">${tastingMenus.map((menu) => `<option value="${menu.name}">${menu.name} · ${money(menu.price)}</option>`).join('')}</select>
-          <select name="package">${packages.map((item) => `<option value="${item.name}">${item.name} · ${money(item.price)}</option>`).join('')}</select>
+          <select name="menu">${tastingMenus.map((menu) => `<option value="${menu.name}">${menu.name} &middot; ${money(menu.price)}</option>`).join('')}</select>
+          <select name="package">${packages.map((item) => `<option value="${item.name}">${item.name} &middot; ${money(item.price)}</option>`).join('')}</select>
           <button>Book tasting</button>
           <p id="booking-status"></p>
         </form>
@@ -323,7 +398,7 @@ async function auth(event) {
   const submitter = event.submitter;
   const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
   const endpoint = submitter.value === 'login' ? '/api/login' : '/api/register';
-  const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const response = await api(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   const data = await response.json();
   if (!response.ok) {
     document.querySelector('#auth-status').textContent = data.error;
@@ -341,7 +416,7 @@ async function saveCustomMenu(event) {
   const status = document.querySelector('#builder-status');
   const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
   payload.courses = selectedBuilder;
-  const response = await fetch('/api/custom-menus', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+  const response = await api('/api/custom-menus', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
   const data = await response.json();
   status.textContent = response.ok ? 'Custom menu saved for chef review.' : data.error;
   if (response.ok) loadApi();
@@ -351,14 +426,14 @@ async function bookTasting(event) {
   event.preventDefault();
   const status = document.querySelector('#booking-status');
   const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
-  const response = await fetch('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+  const response = await api('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
   const data = await response.json();
   status.textContent = response.ok ? 'Booking request confirmed. Concierge will prepare your tasting.' : data.error;
   if (response.ok) loadApi();
 }
 
 async function loadApi() {
-  const response = await fetch('/api/site');
+  const response = await api('/api/site');
   const data = await response.json();
   document.querySelector('#metrics').innerHTML = data.metrics.map((metric) => `<article class="metric"><span>${metric.label}</span><strong>${metric.value}</strong><p>${metric.detail}</p></article>`).join('');
   document.querySelector('#activity').innerHTML = data.activity.map((item) => `<li>${item}</li>`).join('');
