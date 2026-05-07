@@ -350,9 +350,21 @@ function liveData() {
 }
 
 function render() {
-  app.innerHTML = `<div class="site restaurant">${nav()}${hero()}${story()}${menus()}${tableExperience()}${packagesSection()}${portal()}${liveData()}</div>`;
+  app.innerHTML = `<div class="site restaurant">${nav()}${hero()}${story()}${menus()}${tableExperience()}${packagesSection()}${portal()}${liveData()}${footer()}</div>`;
   wire();
   loadApi();
+}
+
+function footer() {
+  return `
+    <footer class="site-footer">
+      <div>
+        <span>NovaBite</span>
+        <p>Cinematic tasting menus, velvet reservations, and a dining room that knows how to make an entrance.</p>
+      </div>
+      <strong>A Quantum Cupcake Creation</strong>
+    </footer>
+  `;
 }
 
 function wire() {
